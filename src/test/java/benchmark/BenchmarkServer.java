@@ -31,8 +31,8 @@ import server.storage.InMemoryDPASEDatabase;
 public class BenchmarkServer {
 
 
-    private static final int ITERATIONS = 50;
-    private static final int WARMUP = 50;
+    private static final int ITERATIONS = 5;
+    private static final int WARMUP = 5;
 
     private static String user = "username";
     private static String password = "password";
@@ -44,25 +44,25 @@ public class BenchmarkServer {
 
 
     public static void main(String[] args) throws Exception {
-//        List<Long> times;
-//        System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
-//        times = benchStime();
-//        System.out.println("server time average time is " + avg(times) + "ms with std " + std(times));
+        /*List<Long> times;
+        System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
+        times = benchStime();
+        System.out.println("server time average time is " + avg(times) + "ms with std " + std(times));
 
-        result = getUserrKey(user);
+        result = getUserrKey(user);*/
 
 
-//        List<DPASESP> dpasesps= new ArrayList<>();
-//        setup(dpasesps);
+        List<DPASESP> dpasesps= new ArrayList<>();
+        setup(dpasesps);
 
-//        List<Long> times;
-//        System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
-//
-//        times = benchmarkCreateUser();
-//        System.out.println("Create user average time is " + avg(times) + "ms with std " + std(times));
-//
-//        times = benchmarkEncDecRequest();
-//        System.out.println("Authenticate average time is " + avg(times) + "ms with std " + std(times));
+        List<Long> times;
+        System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
+
+        times = benchmarkCreateUser();
+        System.out.println("Create user average time is " + avg(times) + "ms with std " + std(times));
+
+        times = benchmarkEncDecRequest();
+        System.out.println("Authenticate average time is " + avg(times) + "ms with std " + std(times));
     }
 
 

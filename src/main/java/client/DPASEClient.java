@@ -88,7 +88,7 @@ public class DPASEClient implements UserClient {
         byte[] pw = password.getBytes();
         long salt = System.currentTimeMillis();
         byte[] nonce = this.cryptoModule.constructNonce(username, salt);    //here nonce is qid, also known as ssid
-        int flag = 1;
+        int flag = 0;
 
         try{
             BIG r = cryptoModule.getRandomNumber();
@@ -121,12 +121,12 @@ public class DPASEClient implements UserClient {
             if(flag == 0)
             {
                 String c = EncRequest(username, pw, r, xMark, Arrays.toString(nonce)); //it should start from the calculation of Y2
-                System.out.println(c);
+//                System.out.println(c);
             }
             else
             {
                 String m = DecRequest(username, pw, r, xMark, Arrays.toString(nonce)); //same as above
-                System.out.println(m);
+//                System.out.println(m);
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -189,31 +189,34 @@ public class DPASEClient implements UserClient {
         return cryptoModule.sign(privateKey, message);
     }
 
-    public byte[] hashMessage(byte[] message, long salt)
+    public byte[] hashMessage(byte[] message, byte[] salt)
     {
 //        long salt = System.currentTimeMillis();
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.putLong(salt);
+//        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+//        buffer.putLong(salt);
         List<byte[]> toHash = new ArrayList<>();
         toHash.add(message);
-        toHash.add(buffer.array());
+//        toHash.add(buffer.array());
+        toHash.add(salt);
         byte[] bytes = cryptoModule.hash(toHash);
         return bytes;   //here is 64 bytes after sha-512
     }
 
     public String EncRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException {
-        byte[] block=new byte[16];  //here block is the message to be encrypted, 16bytes, 128bits
-        long rou = System.currentTimeMillis();  //rou is the random selected parameter with length lamda. datatype is long, so 64 bits, 8bytes
+        byte[] block=new byte[1000];  //here block is the message to be encrypted, 16bytes, 128bits
+//        long rho = System.currentTimeMillis();  //rou is the random selected parameter with length lamda. datatype is long, so 64 bits, 8bytes
+        byte[] rho = new byte[32];
 
         int i;
-        for(i=0;i<16;i++) block[i]= (byte)i;
+        for(i=0;i<block.length;i++) block[i]= (byte)i;
+        for(i=0;i<32;i++) rho[i]= (byte)i;
 
-        int length = block.length + 8;
+        int length = block.length + rho.length;
         byte[] e = new byte[length];
 
 //        System.out.println(length);
 
-        ECP com = cryptoModule.hashToECPElement(hashMessage(block, rou));
+        ECP com = cryptoModule.hashToECPElement(hashMessage(block, rho));
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
@@ -238,16 +241,16 @@ public class DPASEClient implements UserClient {
         /*System.out.println("semival len:" + semival.length);*/
 
         //convert rou from long to byte[]
-        byte[] rou_bytes = ByteBuffer.allocate(8).putLong(rou).array();
+//        byte[] rou_bytes = ByteBuffer.allocate(8).putLong(rou).array();
 
-        byte[] m_rou = new byte[length];
+        byte[] m_rho = new byte[length];            //the code block below is the combination of message and rho
         for (int u = 0; u < block.length; u++)
         {
-            m_rou[u] = block[u];
+            m_rho[u] = block[u];
         }
         for (int t = block.length; t < length; t++)
         {
-            m_rou[t] = rou_bytes[t-block.length];
+            m_rho[t] = rho[t-block.length];
         }
 
         /*System.out.println("m_rou:" + m_rou.length);*/
@@ -255,9 +258,7 @@ public class DPASEClient implements UserClient {
 //        int ll = 0;
         for (int p = 0; p< length; p++)
         {
-            e[p] = (byte) (semival[p] ^ m_rou[p]);
-//            ll += 1;
-//            System.out.println(e[p] + "and" + ll);
+            e[p] = (byte) (semival[p] ^ m_rho[p]);      //executing XOR byte by byte
         }
 
         /*System.out.println("e len:" + e.length);
@@ -269,18 +270,12 @@ public class DPASEClient implements UserClient {
         } catch (UnsupportedEncodingException unsupportedEncodingException) {
             unsupportedEncodingException.printStackTrace();
         }
+
         String com_s = com.toString();
 
-        /*ArrayList ciphertext_c = new ArrayList();
-        ciphertext_c.add(e);
-        ciphertext_c.add(com);*/
-
         String ciphertext_c = e_s + com_s;
-        /*System.out.println("String len:" + e_s.length());
-        System.out.println("e as String:" + e_s);*/
 
         return ciphertext_c;
-
 
 
         /*byte[] iv=new byte[16];
@@ -298,13 +293,13 @@ public class DPASEClient implements UserClient {
     }
 
     public String DecRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException{
-        int length = 24;
+        int length = 48;
         byte[] message = new byte[16];
-        byte[] rou = new byte[8];
+        byte[] rho = new byte[32];
 
         String cipher = new String();
         int i;
-        for (i = 0; i < 259; i++) cipher += "a";
+        for (i = 0; i < 283; i++) cipher += "a";
 
         String e_s = cipher.substring(0, 24);
         String com_s = cipher.substring(24, 259);
@@ -339,10 +334,10 @@ public class DPASEClient implements UserClient {
 
         byte[] semival = cryptoModule.HPRG(key, length);    //computing HPRG(Y2, |m|+lamda).
 
-        byte[] mp = new byte[24];
-        for (int xp = 0; xp < 24; xp++)
+        byte[] mp = new byte[48];
+        for (int xp = 0; xp < 48; xp++)
         {
-            mp[xp] = (byte)(semival[xp] ^ e[xp]);
+            mp[xp] = (byte)(semival[xp] ^ e[xp]);       //XOR between HPRG and e
         }
 
         for (int p = 0; p< 16; p++)
@@ -352,11 +347,8 @@ public class DPASEClient implements UserClient {
 
         for (int u = 16; u < length; u++)
         {
-            rou[u-16] = mp[u];
+            rho[u-16] = mp[u];
         }
-
-        ByteBuffer buffer = ByteBuffer.wrap(rou);
-        long rou_long = buffer.getLong();
 
         /*if (com == cryptoModule.hashToECPElement(hashMessage(message, rou_long)))
             return message.toString();
