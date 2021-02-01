@@ -35,26 +35,36 @@ public class DPASEClient implements UserClient {
     }
 
     @Override
-    public void createUserAccount(String username, String password) throws UserCreationFailureException {
+    public long createUserAccount(String username, String password) throws UserCreationFailureException {
         try{
         byte[] pw = password.getBytes();    //get the ASCII code of the String
         long salt = System.currentTimeMillis(); //get the current time in the form of ms as salt value
-        byte[] nonce = this.cryptoModule.constructNonce(username, salt); //construct a nonce given username and salt. However, not finished.
-        BIG r = cryptoModule.getRandomNumber(); //produce a random number. However, not finished
+        byte[] nonce = this.cryptoModule.constructNonce(username, salt); //construct a nonce given username and salt.
+        BIG r = cryptoModule.getRandomNumber(); //produce a random number.
         ECP2 xMark = cryptoModule.hashAndMultiply(r, pw); // = H(pw)^r. This method is override in SCCM.java.
-
-
+//        List<Long> server_times = new ArrayList<>(servers.size());
+        long start_time = 0;
+        long end_time = 0;
+        long sum_time = 0;
 
         KeyPair ukp = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));
 //        System.out.println(ukp.getPublic());
         List<Boolean> bList = new ArrayList<>();
         Boolean b;
         int index = 0;
+
+
         for (DPASESP server : servers) {
+            start_time = java.lang.System.nanoTime();
+//            System.out.println(start_time);
             b = server.finishRegistration(username, ukp.getPublic(), salt); //send user's data to server. (uid, upk)
+            end_time = java.lang.System.nanoTime();
+//            System.out.println(end_time);
+            sum_time += (end_time-start_time);
             bList.add(index, b);
             index++;
         }
+
         int approvedCount = 0;
         index = 0;
         for (Boolean bElement : bList) {
@@ -66,6 +76,7 @@ public class DPASEClient implements UserClient {
         if (approvedCount != servers.size()) {
             throw new UserCreationFailureException("Not all servers finished registration");
         }
+        return sum_time;
     }
      catch(Exception e){
             e.printStackTrace();
@@ -83,12 +94,16 @@ public class DPASEClient implements UserClient {
 
 
     @Override
-    public String EncDecRequest(String username, String password) {
+    public long EncDecRequest(String username, String password) {
 
         byte[] pw = password.getBytes();
         long salt = System.currentTimeMillis();
         byte[] nonce = this.cryptoModule.constructNonce(username, salt);    //here nonce is qid, also known as ssid
         int flag = 0;
+
+        long start_time = 0;
+        long end_time = 0;
+        long sum_time = 0;
 
         try{
             BIG r = cryptoModule.getRandomNumber();
@@ -100,8 +115,11 @@ public class DPASEClient implements UserClient {
             Boolean b;
             int index = 0;
             for (DPASESP server: servers){
+                start_time = System.currentTimeMillis();
                 b = server.authenticate(username, salt, signature); //this step should verify signature, b should indicate the authentication result
+                end_time = System.currentTimeMillis();
                 bList.add(index, b);
+                sum_time += (end_time - start_time);
                 index ++;
             }
             int approvedCount = 0;
@@ -120,18 +138,23 @@ public class DPASEClient implements UserClient {
             //String message;
             if(flag == 0)
             {
-                String c = EncRequest(username, pw, r, xMark, Arrays.toString(nonce)); //it should start from the calculation of Y2
+//                String c = EncRequest(username, pw, r, xMark, Arrays.toString(nonce)); //it should start from the calculation of Y2
+                long server_enctime = EncRequest(username, pw, r, xMark, Arrays.toString(nonce)); //it should start from the calculation of Y2
+                sum_time += server_enctime;
 //                System.out.println(c);
             }
             else
             {
-                String m = DecRequest(username, pw, r, xMark, Arrays.toString(nonce)); //same as above
+//                String m = DecRequest(username, pw, r, xMark, Arrays.toString(nonce)); //same as above
+                long server_dectime = DecRequest(username, pw, r, xMark, Arrays.toString(nonce)); //same as above
+                sum_time += server_dectime;
 //                System.out.println(m);
             }
         } catch(Exception e) {
             e.printStackTrace();
         }
-        return null;
+//        return null;
+        return sum_time;
     }
 
     private KeyPair performOPRF(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws Exception {
@@ -202,7 +225,7 @@ public class DPASEClient implements UserClient {
         return bytes;   //here is 64 bytes after sha-512
     }
 
-    public String EncRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException {
+    public long EncRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException {
         byte[] block=new byte[1000];  //here block is the message to be encrypted, 16bytes, 128bits
 //        long rho = System.currentTimeMillis();  //rou is the random selected parameter with length lamda. datatype is long, so 64 bits, 8bytes
         byte[] rho = new byte[32];
@@ -214,14 +237,19 @@ public class DPASEClient implements UserClient {
         int length = block.length + rho.length;
         byte[] e = new byte[length];
 
-//        System.out.println(length);
+        long start_time = 0;
+        long end_time = 0;
+        long sum_time = 0;
 
         ECP com = cryptoModule.hashToECPElement(hashMessage(block, rho));
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
         for (DPASESP server : servers) {
+            start_time = System.currentTimeMillis();
             responseList.add(index, server.performOPRF(ssid, username, xMark, com));
+            end_time = System.currentTimeMillis();
+            sum_time += (end_time - start_time);
             index ++;
         }
         List<FP12> responses = new ArrayList<>();
@@ -275,7 +303,8 @@ public class DPASEClient implements UserClient {
 
         String ciphertext_c = e_s + com_s;
 
-        return ciphertext_c;
+//        return ciphertext_c;
+        return sum_time;
 
 
         /*byte[] iv=new byte[16];
@@ -292,7 +321,7 @@ public class DPASEClient implements UserClient {
 
     }
 
-    public String DecRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException{
+    public long DecRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException{
         int length = 48;
         byte[] message = new byte[16];
         byte[] rho = new byte[32];
@@ -303,6 +332,10 @@ public class DPASEClient implements UserClient {
 
         String e_s = cipher.substring(0, 24);
         String com_s = cipher.substring(24, 259);
+
+        long start_time = 0;
+        long end_time = 0;
+        long sum_time = 0;
 
         /*System.out.println(e_s);
         System.out.println(com_s);*/
@@ -316,7 +349,10 @@ public class DPASEClient implements UserClient {
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
         for (DPASESP server : servers) {
+            start_time = System.currentTimeMillis();
             responseList.add(index, server.performOPRF(ssid, username, xMark, com));
+            end_time = System.currentTimeMillis();
+            sum_time += (end_time - start_time);
             index ++;
         }
         List<FP12> responses = new ArrayList<>();
@@ -353,8 +389,10 @@ public class DPASEClient implements UserClient {
         /*if (com == cryptoModule.hashToECPElement(hashMessage(message, rou_long)))
             return message.toString();
         else return null;*/
-        return message.toString();
+//        return message.toString();
+        return sum_time;
     }
+
 }
 
 

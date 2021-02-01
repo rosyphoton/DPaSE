@@ -27,8 +27,8 @@ import server.storage.InMemoryDPASEDatabase;
 public class Benchmark {
 
 
-    private static final int ITERATIONS = 5;
-    private static final int WARMUP = 5;
+    private static final int ITERATIONS = 50;
+    private static final int WARMUP = 50;
 
     private static String user = "username";
     private static String password = "password";
@@ -40,20 +40,29 @@ public class Benchmark {
         setup(dpasesps);
 
         List<Long> times;
+        List<Long> servertimes;
+        ArrayList<List> time_tuple0;
+        ArrayList<List> time_tuple1;
         System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
 //
-        times = benchmarkCreateUser();
+        time_tuple0 = benchmarkCreateUser();
+        times = time_tuple0.get(0);
+        servertimes = time_tuple0.get(1);
         System.out.println("Create user average time is " + avg(times) + "ms with std " + std(times));
+        System.out.println("Create user average servertime is " + avg(servertimes) + "ns with std " + std(servertimes));
 
 
 
-        times = benchmarkEncDecRequest();
-        System.out.println("Authenticate average time is " + avg(times) + "ms with std " + std(times));
+        time_tuple1 = benchmarkEncDecRequest();
+        times = time_tuple1.get(0);
+        servertimes = time_tuple1.get(1);
+        System.out.println("Authenticate + Enc/Dec average clienttime is " + avg(times) + "ms with std " + std(times));
+        System.out.println("Authenticate + Enc/Dec average servertime is " + avg(servertimes) + "ms with std " + std(servertimes));
     }
 
 
     private static void setup(List<DPASESP> dpasesps) throws Exception {
-        int serverCount = 6;
+        int serverCount = 10;
         long startTime = System.currentTimeMillis();
         BIG[]  serversecrets = new BIG[serverCount];
         RAND rng = new RAND();
@@ -112,37 +121,48 @@ public class Benchmark {
         return Math.sqrt(squaredDiff/times.size());
     }
 
-    private static List<Long> benchmarkCreateUser() throws Exception{
-
+    private static ArrayList<List> benchmarkCreateUser() throws Exception{
         List<Long> times = new ArrayList<>(ITERATIONS);
+        List<Long> servertimes = new ArrayList<>(ITERATIONS);
+        ArrayList<List> time_tuple = new ArrayList<List>();
         long startTime = 0;
         long endTime = 0;
+        long serverTime = 0;
         for (int i = 0; i < ITERATIONS + WARMUP; i++) {
             startTime = java.lang.System.currentTimeMillis();
 //            System.out.println(user+i);
-            client.createUserAccount(user+i, password);
+            serverTime = client.createUserAccount(user+i, password);
             endTime = java.lang.System.currentTimeMillis();
             Thread.sleep(20);
             if(i >= WARMUP){
                 times.add(endTime - startTime);
+                servertimes.add(serverTime);
             }
         }
-        return times;
+        time_tuple.add(times);
+        time_tuple.add(servertimes);
+        return time_tuple;
     }
 
-    private static List<Long> benchmarkEncDecRequest() throws Exception{
-        List<Long> times = new ArrayList<>(ITERATIONS);
+    private static ArrayList<List> benchmarkEncDecRequest() throws Exception{
+        List<Long> clienttimes = new ArrayList<>(ITERATIONS);
+        List<Long> servertimes = new ArrayList<>(ITERATIONS);
+        ArrayList<List> time_tuple = new ArrayList<List>();
         long startTime = 0;
         long endTime = 0;
+        long serverTime = 0;
         for (int i = 0; i < ITERATIONS + WARMUP; i++) {
             startTime = java.lang.System.currentTimeMillis();
-            client.EncDecRequest(user+i, password);
+            serverTime = client.EncDecRequest(user+i, password);
             endTime = java.lang.System.currentTimeMillis();
             Thread.sleep(20);
             if(i >= WARMUP){
-                times.add(endTime - startTime);
+                clienttimes.add(endTime - startTime - serverTime);
+                servertimes.add(serverTime);
             }
         }
-        return times;
+        time_tuple.add(clienttimes);
+        time_tuple.add(servertimes);
+        return time_tuple;
     }
 }

@@ -67,7 +67,7 @@ public class BenchmarkServer {
 
 
     private static void setup(List<DPASESP> dpasesps) throws Exception {
-        int serverCount = 1;
+        int serverCount = 10;
         long startTime = System.currentTimeMillis();
         BIG[]  serversecrets = new BIG[serverCount];
         RAND rng = new RAND();
