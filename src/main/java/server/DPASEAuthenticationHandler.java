@@ -43,7 +43,9 @@ public class DPASEAuthenticationHandler extends AuthenticationHandler{
 
 	public OPRFResponse performOPRF(String ssid, String username, ECP2 x, ECP com) {
 		FP12 y = crypto.hashAndPair(username.getBytes(), x, com);   //calculate the value of y, which is necessary for the calculation of keypair
-		OPRFResponse res = new OPRFResponse(y, ssid);   //ssid is transmitted into class OPRFResponse, res can call getSsid() to get ssid
+		byte[] y_bt = new byte[696];
+		y.toBytes(y_bt);
+		OPRFResponse res = new OPRFResponse(y_bt, ssid);   //ssid is transmitted into class OPRFResponse, res can call getSsid() to get ssid
 		return res;
 	}
 	

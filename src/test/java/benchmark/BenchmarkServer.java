@@ -8,6 +8,13 @@
 package benchmark;
 
 import java.math.BigInteger;
+import java.net.MalformedURLException;
+import java.rmi.AlreadyBoundException;
+import java.rmi.Naming;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PublicKey;
@@ -23,9 +30,11 @@ import client.DPASEClient;
 import client.interfaces.UserClient;
 import org.apache.milagro.amcl.RAND;
 import server.DPASESP;
+import server.DPASESPTool;
 import server.interfaces.DPASEDatabase;
 import server.interfaces.Storage;
 import server.storage.InMemoryDPASEDatabase;
+import util.SharedInter;
 
 
 public class BenchmarkServer {
@@ -36,14 +45,15 @@ public class BenchmarkServer {
 
     private static String user = "username";
     private static String password = "password";
-    private static UserClient client;
+//    private static DPASESPTool Dtool;
+//    private static UserClient client;
 
     private static PublicKey uukp;
     private static DPASEDatabase database;
     private static String result;
 
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception, RemoteException, AlreadyBoundException, MalformedURLException {
         /*List<Long> times;
         System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
         times = benchStime();
@@ -51,18 +61,29 @@ public class BenchmarkServer {
 
         result = getUserrKey(user);*/
 
-
         List<DPASESP> dpasesps= new ArrayList<>();
         setup(dpasesps);
 
-        List<Long> times;
-        System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
+        for(int i = 0; i< 10; i++){
+            System.out.println("result of setting up server "+i);
+            DPASESP dpd = dpasesps.get(i);
+            System.out.println(dpd);
+        }
 
-        times = benchmarkCreateUser();
-        System.out.println("Create user average time is " + avg(times) + "ms with std " + std(times));
+        System.out.println("create RMI service...");
+        SharedInter tool = new DPASESPTool(dpasesps);
+//        SharedInter skeleton = (SharedInter) UnicastRemoteObject.exportObject(tool, 0);
+        Registry registry = LocateRegistry.createRegistry(1099);
+        registry.rebind(SharedInter.class.getSimpleName(), tool);
 
-        times = benchmarkEncDecRequest();
-        System.out.println("Authenticate average time is " + avg(times) + "ms with std " + std(times));
+//        List<Long> times;
+//        System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
+//
+//        times = benchmarkCreateUser();
+//        System.out.println("Create user average time is " + avg(times) + "ms with std " + std(times));
+//
+//        times = benchmarkEncDecRequest();
+//        System.out.println("Authenticate average time is " + avg(times) + "ms with std " + std(times));
     }
 
 
@@ -95,7 +116,8 @@ public class BenchmarkServer {
             }
 
         }
-        client = new DPASEClient(dpasesps);
+//        Dtool = new DPASESPTool(dpasesps);
+
         System.out.println("setup took "+(System.currentTimeMillis()-startTime)+" ms");
     }
 
@@ -117,38 +139,38 @@ public class BenchmarkServer {
         return Math.sqrt(squaredDiff/times.size());
     }
 
-    private static List<Long> benchmarkCreateUser() throws Exception{
-
-        List<Long> times = new ArrayList<>(ITERATIONS);
-        long startTime = 0;
-        long endTime = 0;
-        for (int i = 0; i < ITERATIONS + WARMUP; i++) {
-            startTime = java.lang.System.currentTimeMillis();
-            client.createUserAccount(user+i, password);
-            endTime = java.lang.System.currentTimeMillis();
-            Thread.sleep(20);
-            if(i >= WARMUP){
-                times.add(endTime - startTime);
-            }
-        }
-        return times;
-    }
-
-    private static List<Long> benchmarkEncDecRequest() throws Exception{
-        List<Long> times = new ArrayList<>(ITERATIONS);
-        long startTime = 0;
-        long endTime = 0;
-        for (int i = 0; i < ITERATIONS + WARMUP; i++) {
-            startTime = java.lang.System.currentTimeMillis();
-            client.EncDecRequest(user+i, password);
-            endTime = java.lang.System.currentTimeMillis();
-            Thread.sleep(20);
-            if(i >= WARMUP){
-                times.add(endTime - startTime);
-            }
-        }
-        return times;
-    }
+//    private static List<Long> benchmarkCreateUser() throws Exception{
+//
+//        List<Long> times = new ArrayList<>(ITERATIONS);
+//        long startTime = 0;
+//        long endTime = 0;
+//        for (int i = 0; i < ITERATIONS + WARMUP; i++) {
+//            startTime = java.lang.System.currentTimeMillis();
+//            client.createUserAccount(user+i, password);
+//            endTime = java.lang.System.currentTimeMillis();
+//            Thread.sleep(20);
+//            if(i >= WARMUP){
+//                times.add(endTime - startTime);
+//            }
+//        }
+//        return times;
+//    }
+//
+//    private static List<Long> benchmarkEncDecRequest() throws Exception{
+//        List<Long> times = new ArrayList<>(ITERATIONS);
+//        long startTime = 0;
+//        long endTime = 0;
+//        for (int i = 0; i < ITERATIONS + WARMUP; i++) {
+//            startTime = java.lang.System.currentTimeMillis();
+//            client.EncDecRequest(user+i, password);
+//            endTime = java.lang.System.currentTimeMillis();
+//            Thread.sleep(20);
+//            if(i >= WARMUP){
+//                times.add(endTime - startTime);
+//            }
+//        }
+//        return times;
+//    }
 
 
     private static List<Long> benchStime() throws Exception {

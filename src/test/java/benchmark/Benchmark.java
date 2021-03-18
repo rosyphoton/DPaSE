@@ -8,11 +8,18 @@
 package benchmark;
 
 import java.math.BigInteger;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.*;
+
+import model.exceptions.UserCreationFailureException;
 import org.apache.milagro.amcl.BLS461.*;
 import org.apache.milagro.amcl.AES;
 import client.DPASEClient;
@@ -22,6 +29,7 @@ import server.DPASESP;
 import server.interfaces.DPASEDatabase;
 import server.interfaces.Storage;
 import server.storage.InMemoryDPASEDatabase;
+import util.SharedInter;
 
 
 public class Benchmark {
@@ -36,8 +44,13 @@ public class Benchmark {
 
 
     public static void main(String[] args) throws Exception {
-        List<DPASESP> dpasesps= new ArrayList<>();
-        setup(dpasesps);
+//        List<DPASESP> dpasesps= new ArrayList<>();
+//        setup(dpasesps);
+
+        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+        client = new DPASEClient(server);
+        System.out.println("Succeed in Connection!");
 
         List<Long> times;
         List<Long> servertimes;
@@ -60,48 +73,6 @@ public class Benchmark {
         System.out.println("Authenticate + Enc/Dec average servertime is " + avg(servertimes) + "ms with std " + std(servertimes));
     }
 
-
-    private static void setup(List<DPASESP> dpasesps) throws Exception {
-        int serverCount = 10;
-        long startTime = System.currentTimeMillis();
-        BIG[]  serversecrets = new BIG[serverCount];
-        RAND rng = new RAND();
-
-        /* loop for server number times
-        * get random secrete for each server, which is ki hold by server
-        * get a instance: Storage storage = new InMemoryDPASEDatabase
-        * new instance of DPASESP dp, with input storage(instance) and i(server number)
-        * adding this new instance dp with i into dpasesps list*/
-        for(int i=0; i< serverCount; i++) {
-              serversecrets[i] = BIG.random(rng);
-              Storage storage = InMemoryDPASEDatabase.getInstance();
-              DPASESP dp = new DPASESP(storage,i);
-              dpasesps.add(i,dp);
-        }
-
-        /*loop for server number times
-        * setup the ith server
-        * get the corresponding dp of i from List
-        * executing the setup process with serversecrets
-        * server setup is just a parameter transmit?*/
-        for(int i = 0; i< serverCount; i++) {
-            try {
-                System.out.println("setting up server "+i);
-                long s1 = System.currentTimeMillis();
-                DPASESP dpasesp = dpasesps.get(i);
-                dpasesp.setup(serversecrets[i]);
-
-
-                System.out.println("finished with server "+i+ "("+(System.currentTimeMillis()-s1)+")");
-            } catch(Exception e) {
-                e.printStackTrace();
-                System.out.println("Failed to start IdP");
-            }
-
-        }
-        client = new DPASEClient(dpasesps);
-        System.out.println("setup took "+(System.currentTimeMillis()-startTime)+" ms");
-    }
 
     private static double avg(List<Long> times) {
         double sum = 0;

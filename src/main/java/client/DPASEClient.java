@@ -1,10 +1,18 @@
 package client;
 
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.lang.Boolean;
+import java.net.MalformedURLException;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -20,22 +28,30 @@ import client.interfaces.ClientCryptoModule;
 import client.interfaces.UserClient;
 import model.OPRFResponse;
 import model.exceptions.UserCreationFailureException;
-import server.DPASESP;
+import util.SharedInter;
+//import server.DPASESP;
 
 
-public class DPASEClient implements UserClient {
+public class DPASEClient implements UserClient{
 
-    private List<? extends DPASESP> servers;
+    private SharedInter server;
     private ClientCryptoModule cryptoModule;
     private static ByteBuffer buffer = ByteBuffer.allocate(8);
+    private int ServerCount = 10;
 
-    public DPASEClient(List<? extends DPASESP> servers) {
-        this.servers = servers;
+//    Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//    SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+
+    public DPASEClient(SharedInter server) {
+        this.server = server;
         cryptoModule = new SoftwareClientCryptoModule(new Random(1));
     }
 
     @Override
-    public long createUserAccount(String username, String password) throws UserCreationFailureException {
+    public long createUserAccount(String username, String password) throws UserCreationFailureException, RemoteException, NotBoundException{
+//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+
         try{
         byte[] pw = password.getBytes();    //get the ASCII code of the String
         long salt = System.currentTimeMillis(); //get the current time in the form of ms as salt value
@@ -53,13 +69,10 @@ public class DPASEClient implements UserClient {
         Boolean b;
         int index = 0;
 
-
-        for (DPASESP server : servers) {
+        for (int i=0; i<ServerCount; i++) {
             start_time = java.lang.System.nanoTime();
-//            System.out.println(start_time);
-            b = server.finishRegistration(username, ukp.getPublic(), salt); //send user's data to server. (uid, upk)
+            b = server.DTfinishRegistration(i, username, ukp.getPublic(), salt); //send user's data to server. (uid, upk)
             end_time = java.lang.System.nanoTime();
-//            System.out.println(end_time);
             sum_time += (end_time-start_time);
             bList.add(index, b);
             index++;
@@ -73,7 +86,7 @@ public class DPASEClient implements UserClient {
                 approvedCount++;
             index++;
         }
-        if (approvedCount != servers.size()) {
+        if (approvedCount != ServerCount) {
             throw new UserCreationFailureException("Not all servers finished registration");
         }
         return sum_time;
@@ -94,7 +107,9 @@ public class DPASEClient implements UserClient {
 
 
     @Override
-    public long EncDecRequest(String username, String password) {
+    public long EncDecRequest(String username, String password) throws RemoteException, NotBoundException{
+//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
 
         byte[] pw = password.getBytes();
         long salt = System.currentTimeMillis();
@@ -114,9 +129,10 @@ public class DPASEClient implements UserClient {
             List<Boolean> bList = new ArrayList<>();
             Boolean b;
             int index = 0;
-            for (DPASESP server: servers){
+
+            for (int i=0; i<ServerCount; i++){
                 start_time = System.currentTimeMillis();
-                b = server.authenticate(username, salt, signature); //this step should verify signature, b should indicate the authentication result
+                b = server.DTauthenticate(i, username, salt, signature); //this step should verify signature, b should indicate the authentication result
                 end_time = System.currentTimeMillis();
                 bList.add(index, b);
                 sum_time += (end_time - start_time);
@@ -130,7 +146,7 @@ public class DPASEClient implements UserClient {
                     approvedCount++;
                 index ++;
             }
-            if(approvedCount != servers.size()) {
+            if(approvedCount != ServerCount) {
                 throw new UserCreationFailureException("User not authenticated");
             }
 
@@ -157,13 +173,16 @@ public class DPASEClient implements UserClient {
         return sum_time;
     }
 
-    private KeyPair performOPRF(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws Exception {
+    private KeyPair performOPRF(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws Exception, RemoteException, NotBoundException {
+//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+        byte[] xmark_bt = new byte[232];
+        xMark.toBytes(xmark_bt);
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
-        int i;
-        for (DPASESP server : servers) {
-            responseList.add(index, server.performOPRF(ssid, username, xMark, null));   //input these data to the server side to calculate y, with a response res, which can get both ssid and y
+        for (int i=0; i<ServerCount; i++) {
+            responseList.add(index, server.DTperformOPRF(i, ssid, username, xmark_bt, null));   //input these data to the server side to calculate y, with a response res, which can get both ssid and y
             index ++;
         }
         List<FP12> responses = new ArrayList<>();
@@ -171,7 +190,7 @@ public class DPASEClient implements UserClient {
             if (!ssid.equals(resp.getSsid())) {
                 throw new UserCreationFailureException("Invalid server response");
             }
-            responses.add(resp.getY()); //if ssid.equals true, add y into responses. responses is the List of yi
+            responses.add(FP12.fromBytes(resp.getY())); //if ssid.equals true, add y into responses. responses is the List of yi
         }
 
         byte[] privateBytes = processReplies(responses, r, null, pw);
@@ -225,7 +244,10 @@ public class DPASEClient implements UserClient {
         return bytes;   //here is 64 bytes after sha-512
     }
 
-    public long EncRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException {
+    public long EncRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException, Exception, RemoteException, NotBoundException {
+//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+
         byte[] block=new byte[1000];  //here block is the message to be encrypted, 16bytes, 128bits
 //        long rho = System.currentTimeMillis();  //rou is the random selected parameter with length lamda. datatype is long, so 64 bits, 8bytes
         byte[] rho = new byte[32];
@@ -242,12 +264,16 @@ public class DPASEClient implements UserClient {
         long sum_time = 0;
 
         ECP com = cryptoModule.hashToECPElement(hashMessage(block, rho));
+        byte[] com_bt = new byte[117];
+        com.toBytes(com_bt, false);
+        byte[] xmark_bt = new byte[232];
+        xMark.toBytes(xmark_bt);
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
-        for (DPASESP server : servers) {
+        for (int j=0;j<ServerCount; j++) {
             start_time = System.currentTimeMillis();
-            responseList.add(index, server.performOPRF(ssid, username, xMark, com));
+            responseList.add(index, server.DTperformOPRF(j, ssid, username, xmark_bt, com_bt));
             end_time = System.currentTimeMillis();
             sum_time += (end_time - start_time);
             index ++;
@@ -257,7 +283,7 @@ public class DPASEClient implements UserClient {
 /*            if (!ssid.equals(resp.getSsid())) {
                 throw new UserCreationFailureException("Invalid server response");
             }*/
-            responses.add(resp.getY());
+            responses.add(FP12.fromBytes(resp.getY()));
         }
 
         byte[] privateBytes = processReplies(responses, r, com, pw);    //here is Y2, which is computed with com!=null
@@ -321,7 +347,10 @@ public class DPASEClient implements UserClient {
 
     }
 
-    public long DecRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException{
+    public long DecRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException, Exception, RemoteException, NotBoundException{
+//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+
         int length = 48;
         byte[] message = new byte[16];
         byte[] rho = new byte[32];
@@ -344,13 +373,16 @@ public class DPASEClient implements UserClient {
 
         BIG big1 = BIG.fromBytes(com_s.getBytes());
         ECP com = ECP.generator().mul(big1);
-
+        byte[] com_bt = new byte[117];
+        com.toBytes(com_bt, false);
+        byte[] xmark_bt = new byte[232];
+        xMark.toBytes(xmark_bt);
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
-        for (DPASESP server : servers) {
+        for (int j=0; j<ServerCount; j++) {
             start_time = System.currentTimeMillis();
-            responseList.add(index, server.performOPRF(ssid, username, xMark, com));
+            responseList.add(index, server.DTperformOPRF(j, ssid, username, xmark_bt, com_bt));
             end_time = System.currentTimeMillis();
             sum_time += (end_time - start_time);
             index ++;
@@ -360,7 +392,7 @@ public class DPASEClient implements UserClient {
             /*if (!ssid.equals(resp.getSsid())) {
                 throw new UserCreationFailureException("Invalid server response");
             }*/
-            responses.add(resp.getY());
+            responses.add(FP12.fromBytes(resp.getY()));
         }
 
         byte[] privateBytes = processReplies(responses, r, com, pw);    //here is Y2, which is computed with com!=null

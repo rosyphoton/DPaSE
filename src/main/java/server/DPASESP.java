@@ -1,4 +1,6 @@
 package server;
+import java.io.Serializable;
+import java.rmi.RemoteException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -7,9 +9,10 @@ import model.OPRFResponse;
 import model.exceptions.UserCreationFailureException;
 import server.interfaces.ServerCryptoModule;
 import server.interfaces.Storage;
+import util.SharedInter;
 
 
-public class DPASESP{
+public class DPASESP {
 
 	private DPASEAuthenticationHandler authenticationHandler;
 	private ServerCryptoModule cryptoModule;
@@ -30,16 +33,16 @@ public class DPASESP{
 			e.printStackTrace();
 		}
 	}
-	
-	public OPRFResponse performOPRF(String ssid, String username, ECP2 x, ECP com) throws NoSuchAlgorithmException {
+
+	public OPRFResponse performOPRF(String ssid, String username, ECP2 x, ECP com) throws NoSuchAlgorithmException{
 		return authenticationHandler.performOPRF(ssid, username, x, com);
 	}
 
-	public Boolean finishRegistration(String username, PublicKey publicKey, long salt) throws Exception {
+	public Boolean finishRegistration(String username, PublicKey publicKey, long salt) throws Exception{
 		return authenticationHandler.finishRegistration(username, publicKey, salt);
 	}
 
-	public boolean authenticate(String username, long salt, byte[] signature) throws Exception {
+	public Boolean authenticate(String username, long salt, byte[] signature) throws Exception {
 		boolean authenticated = authenticationHandler.authenticate(username, salt, signature);
 		if(authenticated) {
 			try{

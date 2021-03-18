@@ -17,7 +17,9 @@
           <root url="jar://$MODULE_DIR$/libs/amcl-3.2-SNAPSHOT.jar!/" />
         </CLASSES>
         <JAVADOC />
-        <SOURCES />
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/libs/libs_amcl-3.2-SNAPSHOT.jar!/" />
+        </SOURCES>
       </library>
     </orderEntry>
   </component>
