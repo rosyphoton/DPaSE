@@ -40,8 +40,9 @@ import util.SharedInter;
 public class BenchmarkServer {
 
 
-    private static final int ITERATIONS = 5;
-    private static final int WARMUP = 5;
+    private static final int ITERATIONS = 50;
+    private static final int WARMUP = 50;
+    private static final int SERVERCOUNT = 10;
 
     private static String user = "username";
     private static String password = "password";
@@ -64,7 +65,7 @@ public class BenchmarkServer {
         List<DPASESP> dpasesps= new ArrayList<>();
         setup(dpasesps);
 
-        for(int i = 0; i< 10; i++){
+        for(int i = 0; i< SERVERCOUNT; i++){
             System.out.println("result of setting up server "+i);
             DPASESP dpd = dpasesps.get(i);
             System.out.println(dpd);
@@ -88,12 +89,12 @@ public class BenchmarkServer {
 
 
     private static void setup(List<DPASESP> dpasesps) throws Exception {
-        int serverCount = 10;
+//        int serverCount = 50;
         long startTime = System.currentTimeMillis();
-        BIG[]  serversecrets = new BIG[serverCount];
+        BIG[]  serversecrets = new BIG[SERVERCOUNT];
         RAND rng = new RAND();
 
-        for(int i=0; i< serverCount; i++) {
+        for(int i=0; i< SERVERCOUNT; i++) {
             serversecrets[i] = BIG.random(rng);
             Storage storage = InMemoryDPASEDatabase.getInstance();
             DPASESP dp = new DPASESP(storage,i);
@@ -101,7 +102,7 @@ public class BenchmarkServer {
         }
 
 
-        for(int i = 0; i< serverCount; i++) {
+        for(int i = 0; i< SERVERCOUNT; i++) {
             try {
                 System.out.println("setting up server "+i);
                 long s1 = System.currentTimeMillis();
@@ -121,23 +122,23 @@ public class BenchmarkServer {
         System.out.println("setup took "+(System.currentTimeMillis()-startTime)+" ms");
     }
 
-    private static double avg(List<Long> times) {
-        double sum = 0;
-        for (int i = 0; i < times.size(); i++) {
-            sum += times.get(i).doubleValue();
-        }
-        return sum/times.size();
-    }
+//    private static double avg(List<Long> times) {
+//        double sum = 0;
+//        for (int i = 0; i < times.size(); i++) {
+//            sum += times.get(i).doubleValue();
+//        }
+//        return sum/times.size();
+//    }
 
-    private static double std(List<Long> times) {
-        double avg = avg(times);
-        double squaredDiff = 0.0;
-        double sum = 0;
-        for (int i = 0; i < times.size(); i++) {
-            squaredDiff += (avg - times.get(i).doubleValue()) * (avg - times.get(i).doubleValue());
-        }
-        return Math.sqrt(squaredDiff/times.size());
-    }
+//    private static double std(List<Long> times) {
+//        double avg = avg(times);
+//        double squaredDiff = 0.0;
+//        double sum = 0;
+//        for (int i = 0; i < times.size(); i++) {
+//            squaredDiff += (avg - times.get(i).doubleValue()) * (avg - times.get(i).doubleValue());
+//        }
+//        return Math.sqrt(squaredDiff/times.size());
+//    }
 
 //    private static List<Long> benchmarkCreateUser() throws Exception{
 //
@@ -173,49 +174,49 @@ public class BenchmarkServer {
 //    }
 
 
-    private static List<Long> benchStime() throws Exception {
-        List<java.lang.Long> times = new ArrayList<>(ITERATIONS);
-        long startTime = 0;
-        long endTime = 0;
-        Storage storage = InMemoryDPASEDatabase.getInstance();
-        DPASESP dp = new DPASESP(storage, 1);
-        BIG  serversecret = new BIG();
-        dp.setup(serversecret);
+//    private static List<Long> benchStime() throws Exception {
+//        List<java.lang.Long> times = new ArrayList<>(ITERATIONS);
+//        long startTime = 0;
+//        long endTime = 0;
+//        Storage storage = InMemoryDPASEDatabase.getInstance();
+//        DPASESP dp = new DPASESP(storage, 1);
+//        BIG  serversecret = new BIG();
+//        dp.setup(serversecret);
+//
+//        startTime = java.lang.System.currentTimeMillis();
+//        Random rand;
+//        RAND rng = new RAND();
+//        BIG r = BIG.random(rng);
+//        ClientCryptoModule cryptoModule;
+//        String username = "username";
+//        String password = "password";
+//
+//        byte[] pw = password.getBytes();
+//        long salt = System.currentTimeMillis();
+//        cryptoModule = new SoftwareClientCryptoModule(new Random(1));
+//
+//
+//        byte[] nonce = cryptoModule.constructNonce(username, salt);
+//        ECP2 xMark = cryptoModule.hashAndMultiply(r, pw);
+//
+//        for (int i = 0; i < ITERATIONS + WARMUP; i++) {
+//
+//            startTime = java.lang.System.currentTimeMillis();
+//            OPRFResponse response=dp.performOPRF(Arrays.toString(nonce), username, xMark, null);
+//            endTime = java.lang.System.currentTimeMillis();
+//            Thread.sleep(20);
+//            if (i >= WARMUP) {
+//                times.add(endTime - startTime);
+//            }
+//        }
+//        return times;
+//    }
 
-        startTime = java.lang.System.currentTimeMillis();
-        Random rand;
-        RAND rng = new RAND();
-        BIG r = BIG.random(rng);
-        ClientCryptoModule cryptoModule;
-        String username = "username";
-        String password = "password";
-
-        byte[] pw = password.getBytes();
-        long salt = System.currentTimeMillis();
-        cryptoModule = new SoftwareClientCryptoModule(new Random(1));
-
-
-        byte[] nonce = cryptoModule.constructNonce(username, salt);
-        ECP2 xMark = cryptoModule.hashAndMultiply(r, pw);
-
-        for (int i = 0; i < ITERATIONS + WARMUP; i++) {
-
-            startTime = java.lang.System.currentTimeMillis();
-            OPRFResponse response=dp.performOPRF(Arrays.toString(nonce), username, xMark, null);
-            endTime = java.lang.System.currentTimeMillis();
-            Thread.sleep(20);
-            if (i >= WARMUP) {
-                times.add(endTime - startTime);
-            }
-        }
-        return times;
-    }
-
-    private static String getUserrKey(String username)
-    {
-        Storage storage = InMemoryDPASEDatabase.getInstance();
-        uukp = database.getUserKey(username);
-//        System.out.println(uukp.toString());
-        return uukp.toString();
-    }
+//    private static String getUserrKey(String username)
+//    {
+//        Storage storage = InMemoryDPASEDatabase.getInstance();
+//        uukp = database.getUserKey(username);
+////        System.out.println(uukp.toString());
+//        return uukp.toString();
+//    }
 }

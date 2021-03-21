@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
+import model.TKtuple;
 import org.apache.milagro.amcl.AES;
 import org.apache.milagro.amcl.BLS461.*;
 
@@ -39,9 +40,6 @@ public class DPASEClient implements UserClient{
     private static ByteBuffer buffer = ByteBuffer.allocate(8);
     private int ServerCount = 10;
 
-//    Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//    SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
-
     public DPASEClient(SharedInter server) {
         this.server = server;
         cryptoModule = new SoftwareClientCryptoModule(new Random(1));
@@ -49,8 +47,6 @@ public class DPASEClient implements UserClient{
 
     @Override
     public long createUserAccount(String username, String password) throws UserCreationFailureException, RemoteException, NotBoundException{
-//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
 
         try{
         byte[] pw = password.getBytes();    //get the ASCII code of the String
@@ -63,8 +59,11 @@ public class DPASEClient implements UserClient{
         long end_time = 0;
         long sum_time = 0;
 
-        KeyPair ukp = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));
-//        System.out.println(ukp.getPublic());
+//        KeyPair ukp = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));
+        TKtuple tuple = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));
+        KeyPair ukp = tuple.getUkp();
+        sum_time = tuple.getTime();
+
         List<Boolean> bList = new ArrayList<>();
         Boolean b;
         int index = 0;
@@ -73,7 +72,7 @@ public class DPASEClient implements UserClient{
             start_time = java.lang.System.nanoTime();
             b = server.DTfinishRegistration(i, username, ukp.getPublic(), salt); //send user's data to server. (uid, upk)
             end_time = java.lang.System.nanoTime();
-            sum_time += (end_time-start_time);
+            sum_time += (end_time-start_time)/1000000;
             bList.add(index, b);
             index++;
         }
@@ -108,8 +107,6 @@ public class DPASEClient implements UserClient{
 
     @Override
     public long EncDecRequest(String username, String password) throws RemoteException, NotBoundException{
-//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
 
         byte[] pw = password.getBytes();
         long salt = System.currentTimeMillis();
@@ -123,7 +120,10 @@ public class DPASEClient implements UserClient{
         try{
             BIG r = cryptoModule.getRandomNumber();
             ECP2 xMark = cryptoModule.hashAndMultiply(r, pw); // = H(pw)^r, com
-            KeyPair ukp = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));  //however, here we get (ukp', usk'), calculated with Y1
+//            KeyPair ukp = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));  //however, here we get (ukp', usk'), calculated with Y1
+            TKtuple tuple = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));  //however, here we get (ukp', usk'), calculated with Y1
+            KeyPair ukp = tuple.getUkp();
+            sum_time = tuple.getTime();
 
             byte[] signature = signUidAndNonce(ukp.getPrivate(), username.getBytes(), nonce);
             List<Boolean> bList = new ArrayList<>();
@@ -173,16 +173,21 @@ public class DPASEClient implements UserClient{
         return sum_time;
     }
 
-    private KeyPair performOPRF(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws Exception, RemoteException, NotBoundException {
-//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
+    private TKtuple performOPRF(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws Exception, RemoteException, NotBoundException {
         byte[] xmark_bt = new byte[232];
         xMark.toBytes(xmark_bt);
+
+        long start_time = 0;
+        long end_time = 0;
+        long sum_time = 0;
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
         for (int i=0; i<ServerCount; i++) {
+            start_time = System.currentTimeMillis();
             responseList.add(index, server.DTperformOPRF(i, ssid, username, xmark_bt, null));   //input these data to the server side to calculate y, with a response res, which can get both ssid and y
+            end_time = System.currentTimeMillis();
+            sum_time += (end_time - start_time);
             index ++;
         }
         List<FP12> responses = new ArrayList<>();
@@ -195,7 +200,9 @@ public class DPASEClient implements UserClient{
 
         byte[] privateBytes = processReplies(responses, r, null, pw);
         KeyPair keys = cryptoModule.generateKeysFromBytes(privateBytes);
-        return keys;
+
+        TKtuple tuple = new TKtuple(sum_time, keys);
+        return tuple;
     }
 
     private byte[] processReplies(List<FP12> responses, BIG r, ECP com, byte[] password) {
@@ -245,8 +252,6 @@ public class DPASEClient implements UserClient{
     }
 
     public long EncRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException, Exception, RemoteException, NotBoundException {
-//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
 
         byte[] block=new byte[1000];  //here block is the message to be encrypted, 16bytes, 128bits
 //        long rho = System.currentTimeMillis();  //rou is the random selected parameter with length lamda. datatype is long, so 64 bits, 8bytes
@@ -348,8 +353,6 @@ public class DPASEClient implements UserClient{
     }
 
     public long DecRequest(String username, byte[] pw, BIG r, ECP2 xMark, String ssid) throws NoSuchAlgorithmException, Exception, RemoteException, NotBoundException{
-//        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-//        SharedInter server = (SharedInter) registry.lookup(SharedInter.class.getSimpleName());
 
         int length = 48;
         byte[] message = new byte[16];

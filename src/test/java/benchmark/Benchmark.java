@@ -18,6 +18,7 @@ import java.security.KeyPairGenerator;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.logging.Logger;
 
 import model.exceptions.UserCreationFailureException;
 import org.apache.milagro.amcl.BLS461.*;
@@ -57,12 +58,15 @@ public class Benchmark {
         ArrayList<List> time_tuple0;
         ArrayList<List> time_tuple1;
         System.out.println("Executing " + ITERATIONS + " time each with " + WARMUP + " warmups");
-//
+
+//        Logger logger = Logger.getGlobal();
+//        logger.info("start processing...");
         time_tuple0 = benchmarkCreateUser();
+//        logger.info("end of processing...");
         times = time_tuple0.get(0);
         servertimes = time_tuple0.get(1);
-        System.out.println("Create user average time is " + avg(times) + "ms with std " + std(times));
-        System.out.println("Create user average servertime is " + avg(servertimes) + "ns with std " + std(servertimes));
+        System.out.println("Create user average clienttime is " + avg(times) + "ms with std " + std(times));
+        System.out.println("Create user average servertime is " + avg(servertimes) + "ms with std " + std(servertimes));
 
 
 
@@ -93,7 +97,7 @@ public class Benchmark {
     }
 
     private static ArrayList<List> benchmarkCreateUser() throws Exception{
-        List<Long> times = new ArrayList<>(ITERATIONS);
+        List<Long> clienttimes = new ArrayList<>(ITERATIONS);
         List<Long> servertimes = new ArrayList<>(ITERATIONS);
         ArrayList<List> time_tuple = new ArrayList<List>();
         long startTime = 0;
@@ -106,11 +110,11 @@ public class Benchmark {
             endTime = java.lang.System.currentTimeMillis();
             Thread.sleep(20);
             if(i >= WARMUP){
-                times.add(endTime - startTime);
+                clienttimes.add(endTime - startTime - serverTime);
                 servertimes.add(serverTime);
             }
         }
-        time_tuple.add(times);
+        time_tuple.add(clienttimes);
         time_tuple.add(servertimes);
         return time_tuple;
     }
