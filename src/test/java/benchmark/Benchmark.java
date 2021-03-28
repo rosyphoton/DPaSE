@@ -65,16 +65,16 @@ public class Benchmark {
 //        logger.info("end of processing...");
         times = time_tuple0.get(0);
         servertimes = time_tuple0.get(1);
-        System.out.println("Create user average clienttime is " + avg(times) + "ms with std " + std(times));
-        System.out.println("Create user average servertime is " + avg(servertimes) + "ms with std " + std(servertimes));
+        System.out.println("Create user average clienttime is " + avg(times)/1000000 + "ms with std " + std(times)/1000000 + "ms");
+        System.out.println("Create user average servertime is " + avg(servertimes)/1000000 + "ms with std " + std(servertimes)/1000000 + "ms");
 
-
+        System.out.println();
 
         time_tuple1 = benchmarkEncDecRequest();
         times = time_tuple1.get(0);
         servertimes = time_tuple1.get(1);
-        System.out.println("Authenticate + Enc/Dec average clienttime is " + avg(times) + "ms with std " + std(times));
-        System.out.println("Authenticate + Enc/Dec average servertime is " + avg(servertimes) + "ms with std " + std(servertimes));
+        System.out.println("Authenticate + Enc/Dec average clienttime is " + avg(times)/1000000 + "ms with std " + std(times)/1000000 + "ms");
+        System.out.println("Authenticate + Enc/Dec average servertime is " + avg(servertimes)/1000000 + "ms with std " + std(servertimes)/1000000 + "ms");
     }
 
 
@@ -104,15 +104,16 @@ public class Benchmark {
         long endTime = 0;
         long serverTime = 0;
         for (int i = 0; i < ITERATIONS + WARMUP; i++) {
-            startTime = java.lang.System.currentTimeMillis();
+            startTime = java.lang.System.nanoTime();
 //            System.out.println(user+i);
             serverTime = client.createUserAccount(user+i, password);
-            endTime = java.lang.System.currentTimeMillis();
+            endTime = java.lang.System.nanoTime();
             Thread.sleep(20);
             if(i >= WARMUP){
                 clienttimes.add(endTime - startTime - serverTime);
                 servertimes.add(serverTime);
             }
+            System.out.println();
         }
         time_tuple.add(clienttimes);
         time_tuple.add(servertimes);
@@ -127,14 +128,15 @@ public class Benchmark {
         long endTime = 0;
         long serverTime = 0;
         for (int i = 0; i < ITERATIONS + WARMUP; i++) {
-            startTime = java.lang.System.currentTimeMillis();
+            startTime = java.lang.System.nanoTime();
             serverTime = client.EncDecRequest(user+i, password);
-            endTime = java.lang.System.currentTimeMillis();
+            endTime = java.lang.System.nanoTime();
             Thread.sleep(20);
             if(i >= WARMUP){
                 clienttimes.add(endTime - startTime - serverTime);
                 servertimes.add(serverTime);
             }
+            System.out.println();
         }
         time_tuple.add(clienttimes);
         time_tuple.add(servertimes);

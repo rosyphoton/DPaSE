@@ -58,6 +58,7 @@ public class DPASEClient implements UserClient{
         long start_time = 0;
         long end_time = 0;
         long sum_time = 0;
+        long server_time = 0;
 
 //        KeyPair ukp = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));
         TKtuple tuple = performOPRF(username, pw, r, xMark, Arrays.toString(nonce));
@@ -72,10 +73,13 @@ public class DPASEClient implements UserClient{
             start_time = java.lang.System.nanoTime();
             b = server.DTfinishRegistration(i, username, ukp.getPublic(), salt); //send user's data to server. (uid, upk)
             end_time = java.lang.System.nanoTime();
-            sum_time += (end_time-start_time)/1000000;
+            sum_time += (end_time-start_time);
+            server_time += (end_time-start_time);
             bList.add(index, b);
             index++;
         }
+
+        System.out.println("avg server time in the step of FinishRegistration: " + ((double)server_time/ServerCount)/1000000 + "ms");
 
         int approvedCount = 0;
         index = 0;
@@ -116,6 +120,7 @@ public class DPASEClient implements UserClient{
         long start_time = 0;
         long end_time = 0;
         long sum_time = 0;
+        long server_time = 0;
 
         try{
             BIG r = cryptoModule.getRandomNumber();
@@ -131,13 +136,16 @@ public class DPASEClient implements UserClient{
             int index = 0;
 
             for (int i=0; i<ServerCount; i++){
-                start_time = System.currentTimeMillis();
+                start_time = java.lang.System.nanoTime();
                 b = server.DTauthenticate(i, username, salt, signature); //this step should verify signature, b should indicate the authentication result
-                end_time = System.currentTimeMillis();
+                end_time = java.lang.System.nanoTime();
                 bList.add(index, b);
                 sum_time += (end_time - start_time);
+                server_time += (end_time - start_time);
                 index ++;
             }
+            System.out.println("avg server time in the step of Authentication: " + ((double)server_time/ServerCount)/1000000 + "ms");
+
             int approvedCount = 0;
             index = 0;
             for(Boolean bElement: bList)
@@ -180,16 +188,20 @@ public class DPASEClient implements UserClient{
         long start_time = 0;
         long end_time = 0;
         long sum_time = 0;
+        long server_time = 0;
 
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
         for (int i=0; i<ServerCount; i++) {
-            start_time = System.currentTimeMillis();
+            start_time = java.lang.System.nanoTime();
             responseList.add(index, server.DTperformOPRF(i, ssid, username, xmark_bt, null));   //input these data to the server side to calculate y, with a response res, which can get both ssid and y
-            end_time = System.currentTimeMillis();
+            end_time = java.lang.System.nanoTime();
             sum_time += (end_time - start_time);
+            server_time += (end_time - start_time);
             index ++;
         }
+        System.out.println("avg server time in the step of PerformOPRF: " + ((double)server_time/ServerCount)/1000000 + "ms");
+
         List<FP12> responses = new ArrayList<>();
         for (OPRFResponse resp : responseList) {
             if (!ssid.equals(resp.getSsid())) {
@@ -267,6 +279,7 @@ public class DPASEClient implements UserClient{
         long start_time = 0;
         long end_time = 0;
         long sum_time = 0;
+        long server_time = 0;
 
         ECP com = cryptoModule.hashToECPElement(hashMessage(block, rho));
         byte[] com_bt = new byte[117];
@@ -277,12 +290,15 @@ public class DPASEClient implements UserClient{
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
         for (int j=0;j<ServerCount; j++) {
-            start_time = System.currentTimeMillis();
+            start_time = java.lang.System.nanoTime();
             responseList.add(index, server.DTperformOPRF(j, ssid, username, xmark_bt, com_bt));
-            end_time = System.currentTimeMillis();
+            end_time = java.lang.System.nanoTime();
             sum_time += (end_time - start_time);
+            server_time += (end_time - start_time);
             index ++;
         }
+        System.out.println("avg server time in the step of PerformOPRF: " + ((double)server_time/ServerCount)/1000000 + "ms");
+
         List<FP12> responses = new ArrayList<>();
         for (OPRFResponse resp : responseList) {
 /*            if (!ssid.equals(resp.getSsid())) {
@@ -368,6 +384,7 @@ public class DPASEClient implements UserClient{
         long start_time = 0;
         long end_time = 0;
         long sum_time = 0;
+        long server_time = 0;
 
         /*System.out.println(e_s);
         System.out.println(com_s);*/
@@ -384,12 +401,15 @@ public class DPASEClient implements UserClient{
         List<OPRFResponse> responseList = new ArrayList<>();
         int index = 0;
         for (int j=0; j<ServerCount; j++) {
-            start_time = System.currentTimeMillis();
+            start_time = java.lang.System.nanoTime();
             responseList.add(index, server.DTperformOPRF(j, ssid, username, xmark_bt, com_bt));
-            end_time = System.currentTimeMillis();
+            end_time = java.lang.System.nanoTime();
             sum_time += (end_time - start_time);
+            server_time += (end_time - start_time);
             index ++;
         }
+        System.out.println("avg server time in the step of PerformOPRF: " + ((double)server_time/ServerCount)/1000000 + "ms");
+
         List<FP12> responses = new ArrayList<>();
         for (OPRFResponse resp : responseList) {
             /*if (!ssid.equals(resp.getSsid())) {
